@@ -220,6 +220,12 @@ data class PostsUiState(
         get() = isLoading && !hasPosts && error == null
 
     /**
+     * True si pas de posts et pas en chargement.
+     */
+    val isEmpty: Boolean
+        get() = !isLoading && posts.isEmpty()
+
+    /**
      * Nombre de posts pour affichage.
      */
     val postCount: Int

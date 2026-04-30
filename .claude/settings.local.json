@@ -8,7 +8,12 @@
       "Bash(git commit *)",
       "Bash(./gradlew build *)",
       "Bash(./gradlew compileDebugKotlin --no-daemon)",
-      "Bash(./gradlew lintDebug --no-daemon)"
+      "Bash(./gradlew lintDebug --no-daemon)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(./gradlew clean *)",
+      "Bash(./gradlew compileDebugUnitTestKotlin --no-daemon)",
+      "Bash(./gradlew testDebugUnitTest *)"
     ]
   }
 }
