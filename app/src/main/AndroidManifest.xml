@@ -5,6 +5,7 @@
     <!-- Application tag: Root element for app configuration
          Contains all app components (activities, services, etc.) -->
     <application
+        android:name=".PictetApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
