@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Internet permission: Required for HTTP requests
+         This is a normal permission - no runtime request needed -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Application tag: Root element for app configuration
          Contains all app components (activities, services, etc.) -->
     <application

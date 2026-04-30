@@ -203,10 +203,18 @@ class PictetApplication : Application()
 
 **AndroidManifest.xml:**
 ```xml
-<application
-    android:name=".PictetApplication"
-    ... >
+<manifest ... >
+    <!-- CRITICAL: Internet permission for network calls -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:name=".PictetApplication"
+        ... >
+    </application>
+</manifest>
 ```
+
+**Important:** Sans cette permission, les appels réseau échoueront silencieusement!
 
 ### 5.2 Module Réseau
 
