@@ -112,8 +112,10 @@ private fun PortfolioContent(
             )
 
             // Show portfolio data
-            uiState.hasData -> PortfolioDataContent(
-                summary = uiState.summary!!,
+            // Check summary != null instead of hasData to enable smart cast
+            // Smart cast allows using summary without !! operator
+            uiState.summary != null -> PortfolioDataContent(
+                summary = uiState.summary,
                 modifier = Modifier.fillMaxSize()
             )
 

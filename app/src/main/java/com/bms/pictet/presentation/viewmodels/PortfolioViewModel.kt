@@ -95,11 +95,13 @@ class PortfolioViewModel @Inject constructor(
                 )
             }
             .catch { error ->
-                // Handle unexpected exceptions
+                // Catch any exceptions not handled by Result
+                // Log in production: Log.e("PortfolioViewModel", "Error", error)
+                val message = error.message ?: error.javaClass.simpleName
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = error.message ?: "Unexpected error"
+                        error = "Failed to load: $message"
                     )
                 }
             }
@@ -156,13 +158,24 @@ data class PortfolioUiState(
     /**
      * Computed properties for UI convenience.
      * These help simplify UI logic.
+     *
+     * IMPORTANT: hasData cannot be used for smart cast in Compose.
+     * Use 'summary != null' directly in when() blocks to enable smart cast.
+     * Smart cast avoids the need for !! operator (which is unsafe).
      */
     val hasData: Boolean
         get() = summary != null
 
+    /**
+     * True when portfolio is loaded but contains no positions.
+     */
     val isEmpty: Boolean
         get() = !isLoading && summary?.totalPositions == 0
 
+    /**
+     * Formatted total value for display.
+     * Returns "0.00" when no data available.
+     */
     val totalValueFormatted: String
         get() = summary?.let { "%,.2f".format(it.totalValue) } ?: "0.00"
 }
