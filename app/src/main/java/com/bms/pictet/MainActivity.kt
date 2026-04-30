@@ -22,7 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 // Required for Hilt to inject dependencies into Android components
 import dagger.hilt.android.AndroidEntryPoint
 // App theme import
-import com.bms.pictet.presentation.screens.PortfolioScreen
+import com.bms.pictet.presentation.screens.PostsScreen
 import com.bms.pictet.presentation.theme.PictetTheme
 
 /**
@@ -57,9 +57,9 @@ class MainActivity : ComponentActivity() {
             PictetTheme {
                 // Surface: Container that applies theme background
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    // PortfolioScreen: Main screen with MVVM + Flow demo
-                    // ViewModel is automatically injected by Hilt
-                    PortfolioScreen()
+                    // PostsScreen: Main screen with real API integration
+                    // Demonstrates Retrofit + MVVM + Flow + Hilt
+                    PostsScreen()
                 }
             }
         }
@@ -74,6 +74,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainPreview() {
     PictetTheme {
-        PortfolioScreen()
+        PostsScreen()
     }
 }
