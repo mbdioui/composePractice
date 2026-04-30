@@ -45,11 +45,15 @@ class PostsViewModel @Inject constructor(
     /**
      * Init: charge les données au démarrage.
      *
-     * viewModelScope: lifecycle-aware, cancel automatiquement
-     * quand ViewModel est détruit (évite memory leaks)
+     * Stratégie:
+     * 1. Démarrer la collecte du Flow (pour recevoir les mises à jour)
+     * 2. Déclencher immédiatement le refresh depuis le réseau
+     *
+     * Sans le refresh initial, le cache est vide et on affiche une erreur!
      */
     init {
-        loadPosts()
+        loadPosts()          // Démarre l'observation du cache
+        refreshInitialData() // Charge depuis le réseau
     }
 
     /**
@@ -98,6 +102,20 @@ class PostsViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * Rafraîchissement initial au démarrage.
+     *
+     * CRITIQUE: Sans cet appel, le cache reste vide et l'affiche une erreur.
+     * On utilise launch avec le résultat du refresh.
+     */
+    private fun refreshInitialData() {
+        viewModelScope.launch {
+            refreshPostsUseCase()
+            // Le résultat arrive via le Flow (getPostsUseCase)
+            // car refreshPosts() met à jour _cachedPosts
         }
     }
 

@@ -391,16 +391,22 @@ class GetPostsUseCase @Inject constructor(
 // presentation/viewmodels/PostsViewModel.kt
 @HiltViewModel
 class PostsViewModel @Inject constructor(
-    private val getPostsUseCase: GetPostsUseCase
+    private val getPostsUseCase: GetPostsUseCase,
+    private val refreshPostsUseCase: RefreshPostsUseCase  // AJOUTÉ pour le chargement initial
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PostsUiState())
     val uiState: StateFlow<PostsUiState> = _uiState.asStateFlow()
 
     init {
-        loadPosts()
+        loadPosts()          // 1. Démarrer l'observation du cache
+        refreshInitialData() // 2. Charger depuis le réseau (CRITIQUE!)
     }
 
+    /**
+     * Démarrer la collecte du Flow depuis Repository.
+     * Le Flow émet les données du cache (mises à jour automatiques).
+     */
     private fun loadPosts() {
         _uiState.update { it.copy(isLoading = true) }
         
@@ -421,6 +427,17 @@ class PostsViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Déclencher le chargement initial depuis le réseau.
+     * SANS CET APPEL: le cache reste vide et on affiche une erreur!
+     */
+    private fun refreshInitialData() {
+        viewModelScope.launch {
+            refreshPostsUseCase()
+            // Le résultat arrive via le Flow grâce au cache mis à jour
+        }
+    }
 }
 
 data class PostsUiState(
@@ -429,6 +446,12 @@ data class PostsUiState(
     val error: String? = null
 )
 ```
+
+### ⚠️ ERREUR COMMUNE: Oublier le chargement initial!
+
+**Problème:** Si vous ne déclenchez pas `refreshPostsUseCase()`, le cache reste vide et le Flow émet immédiatement `Result.failure("No cached data")`.
+
+**Solution:** Toujours appeler le refresh dans `init` après avoir démarré la collecte du Flow.
 
 **Principes:**
 - `MutableStateFlow` privé (modification uniquement dans ViewModel)
