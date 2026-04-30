@@ -622,8 +622,237 @@ fun `when initialized, should load posts`() = runTest {
 
 ---
 
-**Prochaines étapes:**
-- Ajouter Navigation Component
-- Ajouter pagination (LazyList avec load more)
-- Caching avec Room
-- Tests UI (Compose testing)
+## Étape 13: Ajouter Navigation Component
+
+### 13.1 Définir les routes
+
+```kotlin
+// presentation/navigation/NavigationRoutes.kt
+object NavigationRoutes {
+    const val POSTS_LIST = "posts_list"
+    const val POST_DETAIL = "post_detail/{postId}"
+    
+    fun postDetailRoute(postId: Int) = "post_detail/$postId"
+}
+
+object NavigationArguments {
+    const val POST_ID = "postId"
+}
+```
+
+### 13.2 Créer le NavGraph
+
+```kotlin
+// presentation/navigation/NavGraph.kt
+@Composable
+fun NavGraph(
+    navController: NavHostController,
+    modifier: Modifier = Modifier,
+    startDestination: String = NavigationRoutes.POSTS_LIST
+) {
+    NavHost(
+        navController = navController,
+        startDestination = startDestination,
+        modifier = modifier
+    ) {
+        composable(NavigationRoutes.POSTS_LIST) {
+            PostsListScreen(
+                onPostClick = { postId ->
+                    navController.navigate(NavigationRoutes.postDetailRoute(postId))
+                }
+            )
+        }
+        
+        composable(
+            route = NavigationRoutes.POST_DETAIL,
+            arguments = listOf(
+                navArgument(NavigationArguments.POST_ID) {
+                    type = NavType.IntType
+                }
+            )
+        ) { backStackEntry ->
+            val postId = backStackEntry.arguments?.getInt(NavigationArguments.POST_ID)
+                ?: throw IllegalArgumentException("postId is required")
+            
+            PostDetailScreen(
+                postId = postId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+    }
+}
+```
+
+### 13.3 Intégrer dans MainActivity
+
+```kotlin
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        setContent {
+            PictetTheme {
+                val navController = rememberNavController()
+                NavGraph(navController = navController)
+            }
+        }
+    }
+}
+```
+
+**Points clés:**
+- Routes en constantes pour éviter les typos
+- Arguments type-safe avec `NavType`
+- `popBackStack()` pour navigation arrière
+- Composables stateless avec callbacks
+
+---
+
+## Étape 14: Ajouter Tests Complets
+
+### 14.1 Configurer les dépendances de test
+
+```toml
+# gradle/libs.versions.toml
+[versions]
+mockk = "1.14.0"
+coroutinesTest = "1.9.0"
+turbine = "1.1.0"
+
+[libraries]
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+
+# Bundles
+[plugins]
+android-test = { id = "com.android.test", version.ref = "agp" }
+```
+
+### 14.2 Test du ViewModel avec Turbine
+
+```kotlin
+// test/presentation/viewmodels/PostsViewModelTest.kt
+@OptIn(ExperimentalCoroutinesApi::class)
+class PostsViewModelTest {
+    private val testDispatcher = StandardTestDispatcher()
+    
+    @MockK
+    private lateinit var getPostsUseCase: GetPostsUseCase
+    
+    @MockK
+    private lateinit var refreshPostsUseCase: RefreshPostsUseCase
+    
+    @Before
+    fun setup() {
+        MockKAnnotations.init(this)
+        Dispatchers.setMain(testDispatcher)
+    }
+    
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+    
+    @Test
+    fun `when initialized, should load posts successfully`() = runTest {
+        // Given
+        every { getPostsUseCase() } returns flowOf(Result.success(samplePosts))
+        coEvery { refreshPostsUseCase() } returns Result.success(Unit)
+        
+        // When
+        viewModel = PostsViewModel(getPostsUseCase, refreshPostsUseCase)
+        advanceUntilIdle()
+        
+        // Then
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertEquals(samplePosts, state.posts)
+    }
+}
+```
+
+### 14.3 Test UI avec Compose
+
+```kotlin
+// androidTest/presentation/screens/PostsListScreenTest.kt
+class PostsListScreenTest {
+    @get:Rule
+    val composeTestRule = createComposeRule()
+    
+    @Test
+    fun screen_withPosts_shouldDisplayPostTitles() {
+        // Given
+        val posts = listOf(
+            Post(id = 1, userId = 1, title = "Test Post", body = "Body")
+        )
+        
+        // When
+        composeTestRule.setContent {
+            PictetTheme {
+                PostsListContent(
+                    uiState = PostsUiState(posts = posts),
+                    onPostClick = {},
+                    onRefresh = {},
+                    onRetry = {}
+                )
+            }
+        }
+        
+        // Then
+        composeTestRule.onNodeWithText("Test Post").assertIsDisplayed()
+    }
+}
+```
+
+### 14.4 Stratégie de tests
+
+| Type | Couche | Outils | Quantité |
+|------|--------|--------|----------|
+| **Unit** | ViewModel, UseCase | JUnit, MockK, Turbine | 70% |
+| **Integration** | Repository | MockWebServer, Room | 20% |
+| **UI** | Screens | Compose Test, Espresso | 10% |
+
+---
+
+## Checklist finale complète
+
+### Architecture
+- [ ] Clean Architecture avec 3 couches (domain/data/presentation)
+- [ ] MVVM avec StateFlow unidirectional
+- [ ] Repository Pattern avec abstraction
+- [ ] UseCases pour logique métier
+
+### UI
+- [ ] Jetpack Compose avec Material3
+- [ ] Navigation Component avec type-safe args
+- [ ] Gestion d'état Loading/Error/Success
+- [ ] Composables stateless et réutilisables
+
+### DI & Networking
+- [ ] Hilt configuré avec modules
+- [ ] Retrofit avec logging interceptor
+- [ ] API réelle (jsonplaceholder)
+- [ ] Gestion d'erreurs avec Result type
+
+### Tests
+- [ ] Unit tests: ViewModel (MockK + Turbine)
+- [ ] Unit tests: Repository (coroutines-test)
+- [ ] Unit tests: UseCase (MockK)
+- [ ] UI tests: Compose screens
+- [ ] 17+ tests passent
+
+### Qualité
+- [ ] Pas de `!!` (null-safety)
+- [ ] Pas de GlobalScope (coroutines)
+- [ ] Pas de memory leaks
+- [ ] Code documenté
+
+---
+
+**Ressources additionnelles:**
+- `MOB_PROGRAMMING_SCENARIOS.md` - Pratiques d'interview
+- `CODE_REVIEW_EXERCISES.md` - Exercices de revue
+- `REFACTORING_CHALLENGES.md` - Défis de refactoring
+- `ARCHITECTURE_DISCUSSIONS.md` - Sujets d'architecture

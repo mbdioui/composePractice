@@ -353,17 +353,35 @@ class XxxScreenTest {
 - [ ] Code coverage > 70%
 - [ ] Pas de warnings Lint critiques
 
+### Architecture
+- [ ] Clean Architecture (domain/data/presentation)
+- [ ] MVVM avec StateFlow
+- [ ] Repository Pattern avec interfaces
+- [ ] UseCases pour logique métier
+- [ ] Hilt DI configuré
+
+### Features Implémentées
+- [ ] Appels API réels (jsonplaceholder)
+- [ ] Affichage liste avec Compose
+- [ ] Navigation list → detail
+- [ ] Gestion états Loading/Error/Success
+- [ ] Pull-to-refresh (si demandé)
+- [ ] Tests unitaires (MockK + Turbine)
+- [ ] Tests UI (Compose Testing)
+
 ### Compréhension
 - [ ] Peux expliquer chaque couche de l'architecture
 - [ ] Peux comparer Compose vs Legacy Views
 - [ ] Peux expliquer Coroutines vs Callbacks
 - [ ] Connais les différences Hilt vs Dagger
+- [ ] Comprend le pattern StateFlow vs LiveData
 
 ### Mob Programming
 - [ ] Peux coder et parler en même temps
 - [ ] Accepte le feedback constructivement
 - [ ] Pose des questions si bloqué
 - [ ] Explique mes choix techniques
+- [ ] Pratiqué avec les scenarios fournis
 
 ---
 
@@ -377,6 +395,29 @@ class XxxScreenTest {
 ### Patterns
 - [Now in Android](https://github.com/android/nowinandroid) - Référence officielle
 - Architecture MVVM + Compose + Hilt
+
+### Fichiers du Projet
+| Fichier | Contenu |
+|---------|---------|
+| `STEP_BY_STEP_GUIDE.md` | Guide complet d'implémentation |
+| `INTERVIEW_CHEATSHEET.md` | Référence rapide (1 page) |
+| `BEST_PRACTICES_GUIDE.md` | Checklist de qualité |
+| `MOB_PROGRAMMING_SCENARIOS.md` | Scenarios d'entretien |
+| `CODE_REVIEW_EXERCISES.md` | Exercices de revue |
+| `REFACTORING_CHALLENGES.md` | Défis de refactoring |
+| `ARCHITECTURE_DISCUSSIONS.md` | Sujets d'architecture |
+
+### Historique des branches
+```
+task/1-api-integration
+  └── task/2-mvvm-flow
+        └── task/3-compose-ui
+              └── task/4-hilt-di
+                    └── task/5-navigation-component
+                          └── task/6-comprehensive-testing (17 tests)
+                                └── task/7-mob-programming-scenarios
+                                      └── task/1-final-review-and-docs
+```
 
 ---
 
