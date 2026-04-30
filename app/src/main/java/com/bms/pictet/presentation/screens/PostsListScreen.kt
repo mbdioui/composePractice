@@ -2,16 +2,16 @@ package com.bms.pictet.presentation.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -38,26 +38,20 @@ import com.bms.pictet.presentation.viewmodels.PostsUiState
 import com.bms.pictet.presentation.viewmodels.PostsViewModel
 
 /**
- * PostsScreen: Écran principal affichant les posts depuis l'API JSONPlaceholder.
+ * PostsListScreen: Displays list of posts with navigation support.
  *
- * Architecture:
- * - Screen: Point d'entrée avec ViewModel (gestion état)
- * - Content: Composable stateless réutilisable
- * - Components: Composables privés pour chaque état
+ * Navigation:
+ * - Receives onPostClick callback for navigation
+ * - Parent handles navigation (decoupled from NavController)
  *
- * Flux de données:
- * 1. ViewModel charge posts via API
- * 2. UI observe StateFlow
- * 3. Affichage selon état (loading/error/success)
- *
- * @param viewModel Injected by Hilt via hiltViewModel()
+ * @param onPostClick Callback when user clicks a post (navigates to detail)
+ * @param viewModel Injected by Hilt
  */
 @Composable
-fun PostsScreen(
+fun PostsListScreen(
+    onPostClick: (Int) -> Unit,
     viewModel: PostsViewModel = hiltViewModel()
 ) {
-    // Collecte état UI depuis ViewModel
-    // collectAsStateWithLifecycle: optimised pour lifecycle Android
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
@@ -68,23 +62,18 @@ fun PostsScreen(
             )
         }
     ) { paddingValues ->
-        // Pass paddingValues à content pour éviter overlap avec system bars
-        PostsContent(
+        PostsListContent(
             uiState = uiState,
+            onPostClick = onPostClick,
             onRefresh = { viewModel.onRefresh() },
             onRetry = { viewModel.onRetry() },
-            onPostClick = { post -> viewModel.onPostSelected(post) },
             modifier = Modifier.padding(paddingValues)
         )
     }
 }
 
 /**
- * Header avec titre et bouton refresh.
- * Implémentation custom sans TopAppBar (expérimental).
- *
- * @param isRefreshing Affiche indicateur si refresh en cours
- * @param onRefresh Callback bouton refresh
+ * Top bar for posts list screen.
  */
 @Composable
 private fun PostsTopBar(
@@ -123,25 +112,14 @@ private fun PostsTopBar(
 }
 
 /**
- * Content principal avec gestion états.
- *
- * Affiche:
- * - Loading: Premier chargement
- * - Error: Si erreur et pas de données
- * - List: Liste des posts
- * - Error banner: Si erreur mais données existantes
- *
- * @param uiState État UI à afficher
- * @param onRefresh Callback refresh
- * @param onRetry Callback retry après erreur
- * @param onPostClick Callback clic post
+ * Content area for posts list with state handling.
  */
 @Composable
-private fun PostsContent(
+private fun PostsListContent(
     uiState: PostsUiState,
+    onPostClick: (Int) -> Unit,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
-    onPostClick: (Post) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -149,39 +127,26 @@ private fun PostsContent(
         contentAlignment = Alignment.Center
     ) {
         when {
-            // Loading initial: pas de données, pas d'erreur
-            uiState.isLoading && !uiState.hasPosts -> {
-                LoadingContent()
-            }
+            uiState.showLoading -> LoadingContent()
 
-            // Error sans données: afficher full error
-            uiState.error != null && !uiState.hasPosts -> {
-                ErrorContent(
-                    error = uiState.error,
-                    onRetry = onRetry
-                )
-            }
+            uiState.error != null && !uiState.hasPosts -> ErrorContent(
+                error = uiState.error,
+                onRetry = onRetry
+            )
 
-            // Liste des posts (avec error banner si erreur)
-            else -> {
-                PostsList(
-                    posts = uiState.posts,
-                    error = uiState.error,
-                    onPostClick = onPostClick
-                )
-            }
+            else -> PostsList(
+                posts = uiState.posts,
+                error = uiState.error,
+                onPostClick = onPostClick
+            )
         }
     }
 }
 
-/**
- * Indicateur de chargement plein écran.
- */
 @Composable
 private fun LoadingContent() {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         CircularProgressIndicator()
         Spacer(modifier = Modifier.height(16.dp))
@@ -193,10 +158,6 @@ private fun LoadingContent() {
     }
 }
 
-/**
- * Content d'erreur avec retry.
- * Affiché quand aucune donnée n'est disponible.
- */
 @Composable
 private fun ErrorContent(
     error: String,
@@ -206,85 +167,59 @@ private fun ErrorContent(
         modifier = Modifier
             .fillMaxWidth()
             .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Icône erreur
         Text(
             text = "⚠️",
             style = MaterialTheme.typography.displayMedium
         )
-
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Titre erreur
         Text(
             text = "Failed to load posts",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.error
         )
-
         Spacer(modifier = Modifier.height(8.dp))
-
-        // Message détaillé
         Text(
             text = error,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.bodyMedium
         )
-
         Spacer(modifier = Modifier.height(24.dp))
-
-        // Bouton retry
         Button(onClick = onRetry) {
             Text("Retry")
         }
     }
 }
 
-/**
- * Liste des posts.
- * Affiche aussi un banner d'erreur si erreur + données existantes.
- *
- * @param posts Liste des posts
- * @param error Message d'erreur optionnel (affiché si présent)
- * @param onPostClick Callback clic
- */
 @Composable
 private fun PostsList(
     posts: List<Post>,
     error: String?,
-    onPostClick: (Post) -> Unit
+    onPostClick: (Int) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Banner d'erreur si erreur mais données existantes
         if (error != null) {
             item {
                 ErrorBanner(error = error)
             }
         }
 
-        // Liste des posts
         items(
             items = posts,
-            key = { it.id }  // Stable key pour performance
+            key = { it.id }
         ) { post ->
             PostCard(
                 post = post,
-                onClick = { onPostClick(post) }
+                onClick = { onPostClick(post.id) }
             )
         }
     }
 }
 
-/**
- * Banner d'erreur inline.
- * Affiché quand erreur mais données existantes.
- */
 @Composable
 private fun ErrorBanner(error: String) {
     Card(
@@ -302,12 +237,6 @@ private fun ErrorBanner(error: String) {
     }
 }
 
-/**
- * Carte individuelle pour un post.
- *
- * @param post Post à afficher
- * @param onClick Callback clic
- */
 @Composable
 private fun PostCard(
     post: Post,
@@ -317,17 +246,13 @@ private fun PostCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Titre du post
             Text(
                 text = post.displayTitle,
                 style = MaterialTheme.typography.titleMedium,
@@ -337,7 +262,6 @@ private fun PostCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Excerpt (aperçu)
             Text(
                 text = post.excerpt,
                 style = MaterialTheme.typography.bodyMedium,
@@ -348,7 +272,6 @@ private fun PostCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Footer: ID + stats
             Text(
                 text = "Post #${post.id} • ${post.wordCount} words • User ${post.userId}",
                 style = MaterialTheme.typography.labelSmall,
