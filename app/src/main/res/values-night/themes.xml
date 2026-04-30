@@ -1,16 +1,18 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.Pictet" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_200</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/black</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_200</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
+    <!-- Theme.Pictet: Dark theme variant for the application
+         Parent: Theme.Material - Uses system dark theme when device is in dark mode
+         Material3 Compose theme (PictetTheme) provides actual Material You colors -->
+    <style name="Theme.Pictet" parent="android:Theme.Material.NoActionBar">
+        <!-- statusBarColor: Transparent for edge-to-edge display
+             Allows content to draw behind status bar -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+
+        <!-- navigationBarColor: Transparent for edge-to-edge experience
+             System will automatically handle contrast in dark mode -->
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+
+        <!-- windowBackground: Background shown before Compose renders
+             Using system dark background color -->
+        <item name="android:windowBackground">?android:attr/colorBackground</item>
     </style>
 </resources>
