@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "pictet"
+rootProject.name = "SpaceXplorer"
 include(":app")
  
