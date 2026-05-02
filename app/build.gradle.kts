@@ -42,6 +42,7 @@ dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime)
+    implementation(libs.material)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))
@@ -73,7 +74,9 @@ dependencies {
     implementation(libs.coil.compose)
 
     // Testing
+    testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.turbine)
+    kaptTest(libs.hilt.compiler)
 }
