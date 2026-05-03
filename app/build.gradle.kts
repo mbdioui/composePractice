@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
-    alias(libs.plugins.kapt)
+    alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
 
@@ -38,6 +38,12 @@ android {
     }
 }
 
+// Workaround for Hilt/JavaPoet compatibility issue
+tasks.withType<dagger.hilt.android.plugin.task.AggregateDepsTask>().configureEach {
+    // Force the task to use the older JavaPoet-compatible behavior
+    enabled = false
+}
+
 dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
@@ -57,7 +63,7 @@ dependencies {
 
     // Hilt
     implementation(libs.hilt.android)
-    kapt(libs.hilt.compiler)
+    ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
     // Networking
@@ -68,7 +74,7 @@ dependencies {
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
-    kapt(libs.room.compiler)
+    ksp(libs.room.compiler)
 
     // Image Loading
     implementation(libs.coil.compose)
@@ -78,5 +84,5 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.turbine)
-    kaptTest(libs.hilt.compiler)
+    kspTest(libs.hilt.compiler)
 }
