@@ -532,14 +532,41 @@ inline fun <T> Result<T>.onError(action: (String) -> Unit): Result<T> {
 ```kotlin
 // domain/repository/LaunchRepository.kt
 interface LaunchRepository {
+    /**
+     * Offline-First: Returns cached data immediately (if available),
+     * then silently refreshes from remote.
+     * Flow emits:
+     *   - Loading (on first launch when cache empty)
+     *   - Success (cached data immediately)
+     *   - Success (fresh data after background refresh)
+     *   - Error (if network fails AND cache is empty)
+     */
     fun getLaunches(): Flow<Result<List<Launch>>>
+    
+    /**
+     * Force refresh from remote (for pull-to-refresh)
+     */
     suspend fun refreshLaunches(): Result<Unit>
+    
+    /**
+     * Get single launch (cache first, then remote)
+     */
     suspend fun getLaunch(id: String): Result<Launch>
+    
     suspend fun getRocket(id: String): Result<Rocket>
 }
 ```
 
-**3.2 Repository Implementation**
+**3.2 Repository Implementation (Offline-First)**
+
+**Offline-First Strategy:**
+```
+1. Query Room Flow → If data exists, emit Success immediately (fast!)
+2. Launch background coroutine → Fetch from API
+3. Save fresh data to Room → Room Flow auto-emits updated data
+4. First launch only → Show Loading while fetching
+5. No network → Still show cached data (stale but functional)
+```
 
 ```kotlin
 // data/repository/LaunchRepositoryImpl.kt
@@ -549,21 +576,40 @@ class LaunchRepositoryImpl @Inject constructor(
     private val launchDao: LaunchDao
 ) : LaunchRepository {
 
-    override fun getLaunches(): Flow<Result<List<Launch>>> =
+    /**
+     * Offline-First: Returns cached data immediately, refreshes in background
+     * 
+     * Flow behavior:
+     * - First launch (empty cache): Emits Loading → Success (after fetch)
+     * - Subsequent opens: Emits Success (cached) → Success (fresh after refresh)
+     * - Offline with cache: Emits Success (cached), silent refresh fails
+     */
+    override fun getLaunches(): Flow<Result<List<Launch>>> = 
         launchDao.getAllLaunches()
             .map { entities ->
                 if (entities.isEmpty()) {
-                    Result.Loading() // Emit loading when cache is empty
+                    // First launch: Show loading while we fetch
+                    Result.Loading()
                 } else {
+                    // Have cached data: Show immediately, refresh in background
                     Result.Success(entities.map { it.toDomain() })
                 }
             }
+            .onStart {
+                // Launch background refresh (doesn't block Flow emission)
+                coroutineScope { launch { refreshLaunches() } }
+            }
             .catch { emit(Result.Error(it.message ?: "Unknown error")) }
 
+    /**
+     * Force refresh from remote
+     * Called by: Pull-to-refresh, first launch (via onStart), retry button
+     */
     override suspend fun refreshLaunches(): Result<Unit> = try {
         val response = api.getAllLaunches()
         if (response.isSuccessful) {
             response.body()?.let { launches ->
+                // Save to Room → Triggers Flow re-emission with fresh data
                 launchDao.insertLaunches(launches.map { it.toEntity() })
                 Result.Success(Unit)
             } ?: Result.Error("Empty response")
@@ -703,16 +749,6 @@ class GetLaunchDetailsUseCase @Inject constructor(
         repository.getLaunch(id)
 }
 
-// Example: Wrapper use case that returns Loading first, then calls repository
-class GetLaunchesWithLoadingUseCase @Inject constructor(
-    private val repository: LaunchRepository
-) {
-    operator fun invoke(): Flow<Result<List<Launch>>> = flow {
-        emit(Result.Loading()) // Emit loading state first
-        emit(repository.refreshLaunches()) // Then emit actual result
-    }
-}
-
 // domain/usecase/FilterLaunchesUseCase.kt
 class FilterLaunchesUseCase @Inject constructor() {
     operator fun invoke(
@@ -745,6 +781,12 @@ enum class LaunchFilterStatus {
 
 ### Phase 5: ViewModel (30 minutes)
 
+**Offline-First Notes:**
+- Repository handles initial refresh automatically (via `onStart`)
+- ViewModel just collects from Flow, no manual refresh needed on init
+- `isLoading` only true on first launch (empty cache)
+- Subsequent opens show cached data immediately
+
 ```kotlin
 // presentation/viewmodels/LaunchesViewModel.kt
 @HiltViewModel
@@ -765,11 +807,19 @@ class LaunchesViewModel @Inject constructor(
         observeFilters()
     }
 
+    /**
+     * Collects from Repository Flow.
+     * Repository handles:
+     *   - Emitting cached data immediately (if available)
+     *   - Background refresh on first launch
+     *   - Auto-emitting fresh data when Room updates
+     */
     private fun loadLaunches() {
         viewModelScope.launch {
             getLaunchesUseCase().collect { result ->
                 when (result) {
                     is Result.Loading -> {
+                        // Only shows loading on first launch (empty cache)
                         _uiState.update {
                             it.copy(
                                 isLoading = true,
@@ -778,6 +828,9 @@ class LaunchesViewModel @Inject constructor(
                         }
                     }
                     is Result.Success -> {
+                        // Called twice: 
+                        // 1. With cached data (fast!)
+                        // 2. With fresh data after background refresh
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -797,10 +850,7 @@ class LaunchesViewModel @Inject constructor(
                 }
             }
         }
-
-        viewModelScope.launch {
-            refreshLaunchesUseCase()
-        }
+        // Note: No manual refresh here! Repository handles it via onStart {}
     }
 
     private fun observeFilters() {
@@ -1606,17 +1656,35 @@ class LaunchesViewModelTest {
     }
 
     @Test
-    fun `when initialized, should load launches`() = runTest {
-        // Given
+    fun `when initialized, should load launches from repository`() = runTest {
+        // Given - Repository emits cached data immediately (Offline-First)
         every { getLaunchesUseCase() } returns flowOf(Result.Success(sampleLaunches))
-        coEvery { refreshLaunchesUseCase() } returns Result.Success(Unit)
+        every { filterLaunchesUseCase(any(), any(), any()) } returns sampleLaunches
+        // Note: No refreshLaunchesUseCase call - Repository handles it!
+
+        // When
+        viewModel = LaunchesViewModel(getLaunchesUseCase, refreshLaunchesUseCase, filterLaunchesUseCase)
+        advanceUntilIdle()
+
+        // Then - Shows cached data immediately
+        val state = viewModel.uiState.value
+        assertEquals(sampleLaunches, state.launches)
+        assertFalse(state.isLoading)
+        // Verify refresh was NOT called by ViewModel (Repository handles it)
+        coVerify(exactly = 0) { refreshLaunchesUseCase() }
+    }
+
+    @Test
+    fun `when first launch with empty cache, should show loading`() = runTest {
+        // Given - Empty cache, Repository emits Loading first
+        every { getLaunchesUseCase() } returns flowOf(Result.Loading(), Result.Success(sampleLaunches))
         every { filterLaunchesUseCase(any(), any(), any()) } returns sampleLaunches
 
         // When
         viewModel = LaunchesViewModel(getLaunchesUseCase, refreshLaunchesUseCase, filterLaunchesUseCase)
         advanceUntilIdle()
 
-        // Then
+        // Then - Eventually shows data
         val state = viewModel.uiState.value
         assertEquals(sampleLaunches, state.launches)
         assertFalse(state.isLoading)
@@ -1627,7 +1695,6 @@ class LaunchesViewModelTest {
         // Given
         val filtered = listOf(sampleLaunches[0])
         every { getLaunchesUseCase() } returns flowOf(Result.Success(sampleLaunches))
-        coEvery { refreshLaunchesUseCase() } returns Result.Success(Unit)
         every { filterLaunchesUseCase(sampleLaunches, "Falcon", LaunchFilterStatus.ALL) } returns filtered
 
         viewModel = LaunchesViewModel(getLaunchesUseCase, refreshLaunchesUseCase, filterLaunchesUseCase)
@@ -1642,7 +1709,7 @@ class LaunchesViewModelTest {
     }
 
     @Test
-    fun `when refresh fails, should show error`() = runTest {
+    fun `when pull to refresh fails, should show error`() = runTest {
         // Given
         every { getLaunchesUseCase() } returns flowOf(Result.Success(sampleLaunches))
         coEvery { refreshLaunchesUseCase() } returns Result.Error("Network error")
@@ -1651,7 +1718,7 @@ class LaunchesViewModelTest {
         viewModel = LaunchesViewModel(getLaunchesUseCase, refreshLaunchesUseCase, filterLaunchesUseCase)
         advanceUntilIdle()
 
-        // When
+        // When - User pulls to refresh
         viewModel.onRefresh()
         advanceUntilIdle()
 

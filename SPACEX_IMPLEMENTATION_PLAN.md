@@ -193,17 +193,36 @@ inline fun <T> Result<T>.onError(action: (String) -> Unit): Result<T> {
 ```kotlin
 // domain/repository/LaunchRepository.kt
 interface LaunchRepository {
+    /**
+     * Offline-First: Returns cached data immediately (if available),
+     * then silently refreshes from remote.
+     * Flow emits:
+     *   - Loading (on first launch when cache empty)
+     *   - Success (cached data immediately)
+     *   - Success (fresh data after background refresh)
+     *   - Error (if network fails AND cache is empty)
+     */
     fun getLaunches(): Flow<Result<List<Launch>>>
+    
+    /**
+     * Force refresh from remote (for pull-to-refresh)
+     */
     suspend fun refreshLaunches(): Result<Unit>
+    
+    /**
+     * Get single launch (cache first, then remote)
+     */
     suspend fun getLaunch(id: String): Result<Launch>
+    
     suspend fun getRocket(id: String): Result<Rocket>
 }
 ```
 
 **What it does:**
-- Contract for data access
-- Exposes Flow for reactive data
-- Returns Result for error handling
+- Contract for data access with **Offline-First pattern**
+- `getLaunches()`: Returns cached data **immediately**, refreshes in background
+- Exposes Flow for reactive data (Room as single source of truth)
+- Returns Result for error handling with cached data support
 
 ---
 
@@ -310,17 +329,27 @@ fun <T> Result<T>.data(): T? = when (this) {
 
 ---
 
-### Step 5.2: Repository Implementation with Mapping
+### Step 5.2: Repository Implementation with Mapping (Offline-First)
 **Branch:** `spacex/14-repository-impl`
 
 **Files to create:**
 - `data/repository/LaunchRepositoryImpl.kt`
 
 **What it does:**
-- Implements LaunchRepository interface
+- Implements LaunchRepository interface with **Offline-First pattern**
+- **Always returns cached data immediately** (if available)
+- **Silently refreshes from remote** in background
+- **Auto-emits fresh data** when Room updates
 - Maps DTO ↔ Entity ↔ Domain
-- getLaunches() emits Result states from Room Flow
-- refreshLaunches() returns Result from API
+
+**Offline-First Strategy:**
+```
+1. Check cache → If data exists, emit Success immediately (fast!)
+2. Launch background refresh from API
+3. Save fresh data to Room
+4. Room Flow auto-emits updated data → UI refreshes silently
+5. First launch only: emit Loading while fetching
+```
 
 **Key:** Extension functions for mapping at bottom of file
 
@@ -394,8 +423,10 @@ abstract class RepositoryModule {
 **What it does:**
 - Injects UseCases
 - Exposes uiState: StateFlow<LaunchesUiState>
-- init { loadLaunches() }
-- Methods: onRefresh(), onSearchQueryChange(), onFilterStatusChange()
+- **Offline-First**: Just collects from Flow, Repository handles refresh
+- No manual refresh on init (Repository handles via onStart)
+- Handles Loading (first launch) → Success (cached) → Success (fresh)
+- Methods: onRefresh() (pull-to-refresh), onSearchQueryChange(), onFilterStatusChange()
 
 ---
 
