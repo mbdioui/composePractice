@@ -498,7 +498,36 @@ abstract class AppDatabase : RoomDatabase() {
 
 ### Phase 3: Repository Layer (30 minutes)
 
-**3.1 Repository Interface**
+**3.1 Result Sealed Class & Repository Interface**
+
+```kotlin
+// domain/model/Result.kt - UI State representation
+sealed class Result<out T> {
+    data class Loading<T>(val data: T? = null) : Result<T>()
+    data class Success<T>(val data: T) : Result<T>()
+    data class Error<T>(val message: String, val data: T? = null) : Result<T>()
+}
+
+// Extension functions for cleaner handling
+fun <T> Result<T>.isLoading(): Boolean = this is Result.Loading
+fun <T> Result<T>.isSuccess(): Boolean = this is Result.Success
+fun <T> Result<T>.isError(): Boolean = this is Result.Error
+fun <T> Result<T>.data(): T? = when (this) {
+    is Result.Loading -> data
+    is Result.Success -> data
+    is Result.Error -> data
+}
+
+inline fun <T> Result<T>.onSuccess(action: (T) -> Unit): Result<T> {
+    if (this is Result.Success) action(data)
+    return this
+}
+
+inline fun <T> Result<T>.onError(action: (String) -> Unit): Result<T> {
+    if (this is Result.Error) action(message)
+    return this
+}
+```
 
 ```kotlin
 // domain/repository/LaunchRepository.kt
@@ -524,56 +553,56 @@ class LaunchRepositoryImpl @Inject constructor(
         launchDao.getAllLaunches()
             .map { entities ->
                 if (entities.isEmpty()) {
-                    Result.failure(IllegalStateException("No cached launches"))
+                    Result.Loading() // Emit loading when cache is empty
                 } else {
-                    Result.success(entities.map { it.toDomain() })
+                    Result.Success(entities.map { it.toDomain() })
                 }
             }
-            .catch { emit(Result.failure(it)) }
+            .catch { emit(Result.Error(it.message ?: "Unknown error")) }
 
     override suspend fun refreshLaunches(): Result<Unit> = try {
         val response = api.getAllLaunches()
         if (response.isSuccessful) {
             response.body()?.let { launches ->
                 launchDao.insertLaunches(launches.map { it.toEntity() })
-                Result.success(Unit)
-            } ?: Result.failure(IllegalStateException("Empty response"))
+                Result.Success(Unit)
+            } ?: Result.Error("Empty response")
         } else {
-            Result.failure(HttpException(response))
+            Result.Error("HTTP ${response.code()}: ${response.message()}")
         }
     } catch (e: Exception) {
-        Result.failure(e)
+        Result.Error(e.message ?: "Network error")
     }
 
     override suspend fun getLaunch(id: String): Result<Launch> = try {
         // Try cache first
         launchDao.getLaunchById(id)?.let {
-            return Result.success(it.toDomain())
+            return Result.Success(it.toDomain())
         }
         // Fall back to API
         val response = api.getLaunch(id)
         if (response.isSuccessful) {
             response.body()?.let {
-                Result.success(it.toDomain())
-            } ?: Result.failure(IllegalStateException("Empty response"))
+                Result.Success(it.toDomain())
+            } ?: Result.Error("Empty response")
         } else {
-            Result.failure(HttpException(response))
+            Result.Error("HTTP ${response.code()}: ${response.message()}")
         }
     } catch (e: Exception) {
-        Result.failure(e)
+        Result.Error(e.message ?: "Network error")
     }
 
     override suspend fun getRocket(id: String): Result<Rocket> = try {
         val response = api.getRocket(id)
         if (response.isSuccessful) {
             response.body()?.let {
-                Result.success(it.toDomain())
-            } ?: Result.failure(IllegalStateException("Empty response"))
+                Result.Success(it.toDomain())
+            } ?: Result.Error("Empty response")
         } else {
-            Result.failure(HttpException(response))
+            Result.Error("HTTP ${response.code()}: ${response.message()}")
         }
     } catch (e: Exception) {
-        Result.failure(e)
+        Result.Error(e.message ?: "Network error")
     }
 
     // Mapping functions
@@ -674,6 +703,16 @@ class GetLaunchDetailsUseCase @Inject constructor(
         repository.getLaunch(id)
 }
 
+// Example: Wrapper use case that returns Loading first, then calls repository
+class GetLaunchesWithLoadingUseCase @Inject constructor(
+    private val repository: LaunchRepository
+) {
+    operator fun invoke(): Flow<Result<List<Launch>>> = flow {
+        emit(Result.Loading()) // Emit loading state first
+        emit(repository.refreshLaunches()) // Then emit actual result
+    }
+}
+
 // domain/usecase/FilterLaunchesUseCase.kt
 class FilterLaunchesUseCase @Inject constructor() {
     operator fun invoke(
@@ -727,29 +766,35 @@ class LaunchesViewModel @Inject constructor(
     }
 
     private fun loadLaunches() {
-        _uiState.update { it.copy(isLoading = true) }
-
         viewModelScope.launch {
             getLaunchesUseCase().collect { result ->
-                result.fold(
-                    onSuccess = { launches ->
+                when (result) {
+                    is Result.Loading -> {
                         _uiState.update {
                             it.copy(
-                                isLoading = false,
-                                allLaunches = launches,
-                                error = null
-                            )
-                        }
-                    },
-                    onFailure = { error ->
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                error = error.message
+                                isLoading = true,
+                                launches = result.data ?: it.launches
                             )
                         }
                     }
-                )
+                    is Result.Success -> {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                launches = result.data,
+                                error = null
+                            )
+                        }
+                    }
+                    is Result.Error -> {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = result.message
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -761,7 +806,7 @@ class LaunchesViewModel @Inject constructor(
     private fun observeFilters() {
         viewModelScope.launch {
             combine(_searchQuery, _filterStatus, _uiState) { query, status, state ->
-                Triple(query, status, state.allLaunches)
+                Triple(query, status, state.launches)
             }.collect { (query, status, launches) ->
                 val filtered = filterLaunchesUseCase(launches, query, status)
                 _uiState.update { it.copy(filteredLaunches = filtered) }
@@ -781,19 +826,20 @@ class LaunchesViewModel @Inject constructor(
         _uiState.update { it.copy(isRefreshing = true) }
 
         viewModelScope.launch {
-            refreshLaunchesUseCase().fold(
-                onSuccess = {
+            when (val result = refreshLaunchesUseCase()) {
+                is Result.Success -> {
                     _uiState.update { it.copy(isRefreshing = false) }
-                },
-                onFailure = { error ->
+                }
+                is Result.Error -> {
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
-                            error = error.message
+                            error = result.message
                         )
                     }
                 }
-            )
+                else -> { /* Loading not applicable for refresh */ }
+            }
         }
     }
 
@@ -810,7 +856,7 @@ class LaunchesViewModel @Inject constructor(
 data class LaunchesUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
-    val allLaunches: List<Launch> = emptyList(),
+    val launches: List<Launch> = emptyList(),
     val filteredLaunches: List<Launch> = emptyList(),
     val error: String? = null,
     val selectedLaunchId: String? = null
@@ -1452,14 +1498,31 @@ class LaunchRepositoryImplTest {
     }
 
     @Test
-    fun `getLaunches with empty cache should emit failure`() = runTest {
+    fun `getLaunches with empty cache should emit loading`() = runTest {
         // Given
         every { dao.getAllLaunches() } returns flowOf(emptyList())
 
         // When
         repository.getLaunches().test {
             val result = awaitItem()
-            assertTrue(result.isFailure)
+            assertTrue(result is Result.Loading)
+            cancelAndConsumeRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `getLaunches with cached data should emit success`() = runTest {
+        // Given
+        val entities = listOf(
+            LaunchEntity("1", 1, "FalconSat", "2006-03-24", false, false, null, null, null, null, null, null, "rocket1", "pad1")
+        )
+        every { dao.getAllLaunches() } returns flowOf(entities)
+
+        // When
+        repository.getLaunches().test {
+            val result = awaitItem()
+            assertTrue(result is Result.Success)
+            assertEquals(1, result.data()?.size)
             cancelAndConsumeRemainingEvents()
         }
     }
@@ -1488,8 +1551,21 @@ class LaunchRepositoryImplTest {
         val result = repository.refreshLaunches()
 
         // Then
-        assertTrue(result.isSuccess)
+        assertTrue(result is Result.Success)
         coVerify { dao.insertLaunches(any()) }
+    }
+
+    @Test
+    fun `refreshLaunches should return error on API failure`() = runTest {
+        // Given
+        coEvery { api.getAllLaunches() } throws IOException("Network error")
+
+        // When
+        val result = repository.refreshLaunches()
+
+        // Then
+        assertTrue(result is Result.Error)
+        assertEquals("Network error", (result as Result.Error).message)
     }
 }
 ```
@@ -1532,8 +1608,8 @@ class LaunchesViewModelTest {
     @Test
     fun `when initialized, should load launches`() = runTest {
         // Given
-        every { getLaunchesUseCase() } returns flowOf(Result.success(sampleLaunches))
-        coEvery { refreshLaunchesUseCase() } returns Result.success(Unit)
+        every { getLaunchesUseCase() } returns flowOf(Result.Success(sampleLaunches))
+        coEvery { refreshLaunchesUseCase() } returns Result.Success(Unit)
         every { filterLaunchesUseCase(any(), any(), any()) } returns sampleLaunches
 
         // When
@@ -1542,7 +1618,7 @@ class LaunchesViewModelTest {
 
         // Then
         val state = viewModel.uiState.value
-        assertEquals(sampleLaunches, state.allLaunches)
+        assertEquals(sampleLaunches, state.launches)
         assertFalse(state.isLoading)
     }
 
@@ -1550,8 +1626,8 @@ class LaunchesViewModelTest {
     fun `when search query changes, should filter launches`() = runTest {
         // Given
         val filtered = listOf(sampleLaunches[0])
-        every { getLaunchesUseCase() } returns flowOf(Result.success(sampleLaunches))
-        coEvery { refreshLaunchesUseCase() } returns Result.success(Unit)
+        every { getLaunchesUseCase() } returns flowOf(Result.Success(sampleLaunches))
+        coEvery { refreshLaunchesUseCase() } returns Result.Success(Unit)
         every { filterLaunchesUseCase(sampleLaunches, "Falcon", LaunchFilterStatus.ALL) } returns filtered
 
         viewModel = LaunchesViewModel(getLaunchesUseCase, refreshLaunchesUseCase, filterLaunchesUseCase)
@@ -1563,6 +1639,25 @@ class LaunchesViewModelTest {
 
         // Then
         assertEquals(filtered, viewModel.uiState.value.filteredLaunches)
+    }
+
+    @Test
+    fun `when refresh fails, should show error`() = runTest {
+        // Given
+        every { getLaunchesUseCase() } returns flowOf(Result.Success(sampleLaunches))
+        coEvery { refreshLaunchesUseCase() } returns Result.Error("Network error")
+        every { filterLaunchesUseCase(any(), any(), any()) } returns sampleLaunches
+
+        viewModel = LaunchesViewModel(getLaunchesUseCase, refreshLaunchesUseCase, filterLaunchesUseCase)
+        advanceUntilIdle()
+
+        // When
+        viewModel.onRefresh()
+        advanceUntilIdle()
+
+        // Then
+        assertEquals("Network error", viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isRefreshing)
     }
 }
 ```

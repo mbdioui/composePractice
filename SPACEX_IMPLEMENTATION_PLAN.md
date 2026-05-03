@@ -152,14 +152,46 @@ interface SpaceXApi {
 
 ---
 
-### Step 3.2: Repository Interface
+### Step 3.2: Repository Interface & Result Sealed Class
 **Branch:** `spacex/8-repository-interface`
 
 **Files to create:**
+- `domain/model/Result.kt` - Sealed class for UI states
 - `domain/repository/LaunchRepository.kt`
 
 **Code:**
 ```kotlin
+// domain/model/Result.kt
+sealed class Result<out T> {
+    data class Loading<T>(val data: T? = null) : Result<T>()
+    data class Success<T>(val data: T) : Result<T>()
+    data class Error<T>(val message: String, val data: T? = null) : Result<T>()
+}
+
+// Helper functions
+fun <T> Result<T>.isLoading(): Boolean = this is Result.Loading
+fun <T> Result<T>.isSuccess(): Boolean = this is Result.Success
+fun <T> Result<T>.isError(): Boolean = this is Result.Error
+
+fun <T> Result<T>.data(): T? = when (this) {
+    is Result.Loading -> data
+    is Result.Success -> data
+    is Result.Error -> data
+}
+
+inline fun <T> Result<T>.onSuccess(action: (T) -> Unit): Result<T> {
+    if (this is Result.Success) action(data)
+    return this
+}
+
+inline fun <T> Result<T>.onError(action: (String) -> Unit): Result<T> {
+    if (this is Result.Error) action(message)
+    return this
+}
+```
+
+```kotlin
+// domain/repository/LaunchRepository.kt
 interface LaunchRepository {
     fun getLaunches(): Flow<Result<List<Launch>>>
     suspend fun refreshLaunches(): Result<Unit>
@@ -246,8 +278,40 @@ interface LaunchDao {
 
 ## Phase 5: Repository Implementation
 
-### Step 5.1: Repository Implementation with Mapping
-**Branch:** `spacex/13-repository-impl`
+### Step 5.1: Result Sealed Class
+**Branch:** `spacex/13-result-class`
+
+**Files to create:**
+- `domain/model/Result.kt`
+
+**What it does:**
+- Sealed class representing UI states: Loading, Success, Error
+- Extension functions for type-safe handling
+- Used throughout the app for reactive state management
+
+**Code:**
+```kotlin
+sealed class Result<out T> {
+    data class Loading<T>(val data: T? = null) : Result<T>()
+    data class Success<T>(val data: T) : Result<T>()
+    data class Error<T>(val message: String, val data: T? = null) : Result<T>()
+}
+
+// Extension functions
+fun <T> Result<T>.isLoading(): Boolean = this is Result.Loading
+fun <T> Result<T>.isSuccess(): Boolean = this is Result.Success
+fun <T> Result<T>.isError(): Boolean = this is Result.Error
+fun <T> Result<T>.data(): T? = when (this) {
+    is Result.Loading -> data
+    is Result.Success -> data
+    is Result.Error -> data
+}
+```
+
+---
+
+### Step 5.2: Repository Implementation with Mapping
+**Branch:** `spacex/14-repository-impl`
 
 **Files to create:**
 - `data/repository/LaunchRepositoryImpl.kt`
@@ -255,15 +319,15 @@ interface LaunchDao {
 **What it does:**
 - Implements LaunchRepository interface
 - Maps DTO ↔ Entity ↔ Domain
-- getLaunches() from Room with Flow
-- refreshLaunches() from API → Room
+- getLaunches() emits Result states from Room Flow
+- refreshLaunches() returns Result from API
 
 **Key:** Extension functions for mapping at bottom of file
 
 ---
 
-### Step 5.2: Repository Binding (DI)
-**Branch:** `spacex/14-repository-binding`
+### Step 5.3: Repository Binding (DI)
+**Branch:** `spacex/15-repository-binding`
 
 **Files to create:**
 - `di/RepositoryModule.kt`
@@ -290,7 +354,7 @@ abstract class RepositoryModule {
 ## Phase 6: Domain Layer - Use Cases
 
 ### Step 6.1: Create Use Cases
-**Branch:** `spacex/15-usecases`
+**Branch:** `spacex/16-usecases`
 
 **Files to create:**
 - `domain/usecase/GetLaunchesUseCase.kt`
@@ -309,7 +373,7 @@ abstract class RepositoryModule {
 ## Phase 7: Presentation Layer - ViewModels
 
 ### Step 7.1: UI State Classes
-**Branch:** `spacex/16-ui-state`
+**Branch:** `spacex/17-ui-state`
 
 **Files to create:**
 - `presentation/viewmodels/LaunchesUiState.kt`
@@ -322,7 +386,7 @@ abstract class RepositoryModule {
 ---
 
 ### Step 7.2: Launches ViewModel
-**Branch:** `spacex/17-launches-viewmodel`
+**Branch:** `spacex/18-launches-viewmodel`
 
 **Files to create:**
 - `presentation/viewmodels/LaunchesViewModel.kt`
@@ -336,7 +400,7 @@ abstract class RepositoryModule {
 ---
 
 ### Step 7.3: Launch Detail ViewModel
-**Branch:** `spacex/18-detail-viewmodel`
+**Branch:** `spacex/19-detail-viewmodel`
 
 **Files to create:**
 - `presentation/viewmodels/LaunchDetailViewModel.kt`
@@ -351,7 +415,7 @@ abstract class RepositoryModule {
 ## Phase 8: Presentation Layer - UI
 
 ### Step 8.1: Theme Setup
-**Branch:** `spacex/19-theme`
+**Branch:** `spacex/20-theme`
 
 **Files to create:**
 - `presentation/theme/Color.kt` - SpaceX colors (black, blue, etc.)
@@ -365,7 +429,7 @@ abstract class RepositoryModule {
 ---
 
 ### Step 8.2: Launches List Screen - Part 1 (Structure)
-**Branch:** `spacex/20-launches-screen-structure`
+**Branch:** `spacex/21-launches-screen-structure`
 
 **Files to create:**
 - `presentation/screens/LaunchesScreen.kt` - Basic scaffold + TopAppBar
@@ -377,7 +441,7 @@ abstract class RepositoryModule {
 ---
 
 ### Step 8.3: Launches List Screen - Part 2 (List)
-**Branch:** `spacex/21-launches-list`
+**Branch:** `spacex/22-launches-list`
 
 **Modify:** `presentation/screens/LaunchesScreen.kt`
 
@@ -393,7 +457,7 @@ abstract class RepositoryModule {
 ---
 
 ### Step 8.4: Launches List Screen - Part 3 (States)
-**Branch:** `spacex/22-launches-states`
+**Branch:** `spacex/23-launches-states`
 
 **Modify:** `presentation/screens/LaunchesScreen.kt`
 
@@ -409,7 +473,7 @@ abstract class RepositoryModule {
 ---
 
 ### Step 8.5: Search Bar
-**Branch:** `spacex/23-search-bar`
+**Branch:** `spacex/24-search-bar`
 
 **Modify:** `presentation/screens/LaunchesScreen.kt`
 
@@ -424,7 +488,7 @@ abstract class RepositoryModule {
 ---
 
 ### Step 8.6: Filter Chips
-**Branch:** `spacex/24-filter-chips`
+**Branch:** `spacex/25-filter-chips`
 
 **Modify:** `presentation/screens/LaunchesScreen.kt`
 
@@ -439,7 +503,7 @@ abstract class RepositoryModule {
 ---
 
 ### Step 8.7: Pull-to-Refresh
-**Branch:** `spacex/25-pull-to-refresh`
+**Branch:** `spacex/26-pull-to-refresh`
 
 **Modify:** `presentation/screens/LaunchesScreen.kt`
 
@@ -454,7 +518,7 @@ abstract class RepositoryModule {
 ---
 
 ### Step 8.8: Launch Detail Screen
-**Branch:** `spacex/26-detail-screen`
+**Branch:** `spacex/27-detail-screen`
 
 **Files to create:**
 - `presentation/screens/LaunchDetailScreen.kt`
@@ -471,7 +535,7 @@ abstract class RepositoryModule {
 ## Phase 9: Navigation
 
 ### Step 9.1: Navigation Routes
-**Branch:** `spacex/27-navigation-routes`
+**Branch:** `spacex/28-navigation-routes`
 
 **Files to create:**
 - `presentation/navigation/Routes.kt`
@@ -489,7 +553,7 @@ object Routes {
 ---
 
 ### Step 9.2: NavGraph
-**Branch:** `spacex/28-navgraph`
+**Branch:** `spacex/29-navgraph`
 
 **Files to create:**
 - `presentation/navigation/NavGraph.kt`
@@ -502,7 +566,7 @@ object Routes {
 ---
 
 ### Step 9.3: Main Activity Integration
-**Branch:** `spacex/29-main-activity`
+**Branch:** `spacex/30-main-activity`
 
 **Files to modify:**
 - `MainActivity.kt`
@@ -518,7 +582,7 @@ object Routes {
 ## Phase 10: Testing
 
 ### Step 10.1: Repository Unit Test
-**Branch:** `spacex/30-repository-test`
+**Branch:** `spacex/31-repository-test`
 
 **Files to create:**
 - `src/test/java/.../data/repository/LaunchRepositoryImplTest.kt`
@@ -530,7 +594,7 @@ object Routes {
 ---
 
 ### Step 10.2: ViewModel Unit Test
-**Branch:** `spacex/31-viewmodel-test`
+**Branch:** `spacex/32-viewmodel-test`
 
 **Files to create:**
 - `src/test/java/.../presentation/viewmodels/LaunchesViewModelTest.kt`
@@ -543,7 +607,7 @@ object Routes {
 ---
 
 ### Step 10.3: UI Test
-**Branch:** `spacex/32-ui-test`
+**Branch:** `spacex/33-ui-test`
 
 **Files to create:**
 - `src/androidTest/.../presentation/screens/LaunchesScreenTest.kt`
@@ -558,7 +622,7 @@ object Routes {
 ## Phase 11: Polish
 
 ### Step 11.1: Add Placeholder Images
-**Branch:** `spacex/33-placeholders`
+**Branch:** `spacex/34-placeholders`
 
 **Add:**
 - Placeholder drawable for mission patches
@@ -569,7 +633,7 @@ object Routes {
 ---
 
 ### Step 11.2: Date Formatting
-**Branch:** `spacex/34-date-formatting`
+**Branch:** `spacex/35-date-formatting`
 
 **Modify:** `Launch` domain model
 
@@ -580,7 +644,7 @@ object Routes {
 ---
 
 ### Step 11.3: Error Messages
-**Branch:** `spacex/35-error-messages`
+**Branch:** `spacex/36-error-messages`
 
 **Modify:** ViewModels
 
