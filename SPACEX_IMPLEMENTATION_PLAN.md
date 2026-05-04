@@ -17,7 +17,7 @@
 
 **What it does:**
 - Adds Compose, Hilt, Retrofit, Room, Coil dependencies
-- Configures kapt for annotation processing
+- Configures KSP for annotation processing
 - Sets up Java 17 compatibility
 
 **Verify:** `./gradlew build` succeeds

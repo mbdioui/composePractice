@@ -232,7 +232,7 @@ hilt = "2.48"        # Old version, incompatible with Kotlin 2.0
 ```kotlin
 // BAD - Annotations do nothing
 implementation(libs.room.runtime)
-// Missing: kapt(libs.room.compiler)
+// Missing: ksp(libs.room.compiler)
 ```
 
 ### 3. Duplicate Dependencies

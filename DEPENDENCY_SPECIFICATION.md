@@ -269,7 +269,7 @@ hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.r
 - **Error Detection**: Reports missing bindings at compile time
 
 **Technical Details:**
-- Annotation Processor (KAPT/KSP)
+- Annotation Processor (KSP)
 - Generates implementation classes at compile time
 - Runtime has zero overhead from annotation processing
 
@@ -294,7 +294,7 @@ object NetworkModule {
 // In app/build.gradle.kts
 dependencies {
     implementation(libs.hilt.android)     // Runtime in APK
-    kapt(libs.hilt.compiler)               // Build-time only
+    ksp(libs.hilt.compiler)                // Build-time only
 }
 ```
 
@@ -600,7 +600,7 @@ room-compiler = { group = "androidx.room", name = "room-compiler", version.ref =
 - **Schema Export**: Generates database schema files for testing
 
 **Technical Details:**
-- Annotation Processor (KAPT/KSP)
+- Annotation Processor (KSP)
 - Generates `AppDatabase_Impl` with actual SQLite code
 - Generates `LaunchDao_Impl` with query implementations
 
@@ -626,7 +626,7 @@ public class LaunchDao_Impl implements LaunchDao {
 ```kotlin
 dependencies {
     implementation(libs.room.runtime)
-    kapt(libs.room.compiler)  // Required!
+    ksp(libs.room.compiler)  // Required!
 }
 ```
 
