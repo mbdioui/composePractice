@@ -23,9 +23,9 @@ data class Launch(
 
     val isSuccessDisplay: String
         get() = when (success) {
-            true -> "✅ Success"
-            false -> "❌ Failed"
-            null -> "⏳ Upcoming"
+            true -> "Success"
+            false -> "Failed"
+            null -> "Upcoming"
         }
 
     companion object {

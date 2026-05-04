@@ -6,15 +6,21 @@ import androidx.compose.runtime.Composable
 
 @Composable
 fun SpaceXplorerTheme(
-    darkTheme: Boolean = true, // Space theme is dark
     content: @Composable () -> Unit
 ) {
     val colorScheme = darkColorScheme(
-        primary = SpaceBlue,
-        secondary = SpaceGray,
-        background = SpaceBlack,
-        surface = SpaceGray,
-        error = SpaceRed
+        primary = CosmicBlue,
+        onPrimary = SpaceBackground,
+        secondary = NebulaPurple,
+        onSecondary = SpaceBackground,
+        background = SpaceBackground,
+        onBackground = SpaceOnBackground,
+        surface = SpaceSurface,
+        onSurface = SpaceOnSurface,
+        surfaceVariant = SpaceSurfaceVariant,
+        onSurfaceVariant = SpaceOnSurfaceVariant,
+        error = SpaceError,
+        onError = SpaceBackground,
     )
 
     MaterialTheme(

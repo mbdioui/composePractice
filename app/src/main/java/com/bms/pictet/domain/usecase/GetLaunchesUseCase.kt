@@ -53,6 +53,9 @@ class FilterLaunchesUseCase @Inject constructor() {
     }
 }
 
-enum class LaunchFilterStatus {
-    ALL, SUCCESS, FAILED, UPCOMING
+enum class LaunchFilterStatus(val displayName: String) {
+    ALL("All"),
+    SUCCESS("Success"),
+    FAILED("Failed"),
+    UPCOMING("Upcoming")
 }

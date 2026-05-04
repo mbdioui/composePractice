@@ -20,9 +20,11 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -38,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -45,6 +48,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.bms.pictet.domain.model.Launch
 import com.bms.pictet.domain.usecase.LaunchFilterStatus
+import com.bms.pictet.presentation.theme.CosmicBlue
+import com.bms.pictet.presentation.theme.LaunchFailure
+import com.bms.pictet.presentation.theme.LaunchSuccess
+import com.bms.pictet.presentation.theme.LaunchUpcoming
+import com.bms.pictet.presentation.theme.SpaceBackground
+import com.bms.pictet.presentation.theme.SpaceSurfaceHighest
 import com.bms.pictet.presentation.viewmodels.LaunchViewModel
 import com.bms.pictet.presentation.viewmodels.LaunchesUiState
 
@@ -81,8 +90,14 @@ fun LaunchContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("SpaceExplorer") }, colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                title = {
+                    Text(
+                        "SpaceExplorer",
+                        color = CosmicBlue
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = SpaceBackground
                 )
             )
         }) { padding ->
@@ -97,10 +112,24 @@ fun LaunchContent(
                     searchQuery = it
                     onSearchQueryChange(it)
                 },
-                placeholder = { Text("Search Launches ...") },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
+                placeholder = {
+                    Text(
+                        "Search launches...",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        tint = CosmicBlue
+                    )
+                },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = MaterialTheme.shapes.large
             )
 
             FilterChips(
@@ -180,7 +209,11 @@ fun LaunchCard(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = SpaceSurfaceHighest
+        ),
+        shape = MaterialTheme.shapes.medium
     ) {
         Row(
             modifier = Modifier
@@ -188,43 +221,53 @@ fun LaunchCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Mission Patch
             AsyncImage(
                 model = launch.links?.patchSmall,
                 contentDescription = "${launch.name} patch",
-                modifier = Modifier.size(64.dp),
+                modifier = Modifier.size(56.dp),
                 placeholder = rememberVectorPainter(Icons.Default.Image),
                 error = rememberVectorPainter(Icons.Default.Image)
             )
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Launch Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = launch.name,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = launch.formattedDate,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = launch.isSuccessDisplay,
-                    style = MaterialTheme.typography.labelMedium
+                    style = MaterialTheme.typography.labelMedium,
+                    color = launchStatusColor(launch.success)
                 )
             }
 
-            // Arrow
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = null
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
+@Composable
+private fun launchStatusColor(success: Boolean?): Color {
+    return when (success) {
+        true -> LaunchSuccess
+        false -> LaunchFailure
+        null -> LaunchUpcoming
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterChips(
     selectedStatus: LaunchFilterStatus, onFilterStatusChange: (LaunchFilterStatus) -> Unit
@@ -239,7 +282,12 @@ fun FilterChips(
             FilterChip(
                 selected = selectedStatus == status,
                 onClick = { onFilterStatusChange(status) },
-                label = { Text(status.name) })
+                label = { Text(status.displayName) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = CosmicBlue.copy(alpha = 0.2f),
+                    selectedLabelColor = CosmicBlue
+                )
+            )
         }
     }
 }
