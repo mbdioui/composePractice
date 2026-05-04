@@ -13,12 +13,27 @@ data class Launch(
     val launchpadId: String
 ) {
 
+    val formattedDate: String
+        get() = try {
+            val (year, month, day) = dateUtc.split("T")[0].split("-")
+            "$day ${MONTHS[month.toInt() - 1]} $year"
+        } catch (e: Exception) {
+            dateUtc
+        }
+
     val isSuccessDisplay: String
         get() = when (success) {
             true -> "✅ Success"
             false -> "❌ Failed"
             null -> "⏳ Upcoming"
         }
+
+    companion object {
+        private val MONTHS = listOf(
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        )
+    }
 }
 
 data class LaunchLinks(
