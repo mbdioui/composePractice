@@ -38,11 +38,6 @@ android {
     }
 }
 
-// Workaround for Hilt/JavaPoet compatibility issue
-tasks.withType<dagger.hilt.android.plugin.task.AggregateDepsTask>().configureEach {
-    // Force the task to use the older JavaPoet-compatible behavior
-    enabled = false
-}
 
 dependencies {
     // Core
