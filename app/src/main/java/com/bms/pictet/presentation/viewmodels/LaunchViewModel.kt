@@ -11,7 +11,6 @@ import com.bms.pictet.domain.usecase.RefreshLaunchUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -31,22 +30,21 @@ class LaunchViewModel @Inject constructor(
 
     init {
         loadLaunches()
-        observeFilters()
-    }
-
-    private fun observeFilters() {
-        viewModelScope.launch {
-            combine(_searchQuery, _filterStatus, _uiState) { query, status, state ->
-                Triple(query, status, state.launches)
-            }.collect { (query, status, launches) ->
-                val filtered = filterLaunchesUseCase(launches, query, status)
-                _uiState.update { it.copy(filteredLaunches = filtered) }
-            }
-        }
     }
 
     fun onFilterStatusChange(status: LaunchFilterStatus) {
         _filterStatus.value = status
+        _uiState.update {
+            it.copy(
+                filterStatus = status
+            )
+        }
+        applyFilters()
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
+        applyFilters()
     }
 
     fun onRefresh() {
@@ -57,6 +55,7 @@ class LaunchViewModel @Inject constructor(
                 is Result.Success -> {
                     _uiState.update { it.copy(isRefreshing = false) }
                 }
+
                 is Result.Error -> {
                     _uiState.update {
                         it.copy(
@@ -65,7 +64,9 @@ class LaunchViewModel @Inject constructor(
                         )
                     }
                 }
-                else -> { /* Loading not applicable for refresh */ }
+
+                else -> { /* Loading not applicable for refresh */
+                }
             }
         }
     }
@@ -105,6 +106,7 @@ class LaunchViewModel @Inject constructor(
                                 error = null
                             )
                         }
+                        applyFilters()
                     }
 
                     is Result.Error -> {
@@ -122,7 +124,18 @@ class LaunchViewModel @Inject constructor(
         // Note: No manual refresh here! Repository handles it via onStart {}
     }
 
+    fun applyFilters() {
+        val currentLaunches = _uiState.value.launches
+        val currentQuery = _searchQuery.value
+        val currentStatus = _filterStatus.value
 
+        val filteredLaunches = filterLaunchesUseCase(currentLaunches, currentQuery, currentStatus)
+        _uiState.update {
+            it.copy(
+                filteredLaunches = filteredLaunches
+            )
+        }
+    }
 }
 
 data class LaunchesUiState(
@@ -130,6 +143,7 @@ data class LaunchesUiState(
     val isRefreshing: Boolean = false,
     val launches: List<Launch> = emptyList(),
     val filteredLaunches: List<Launch> = emptyList(),
+    val filterStatus: LaunchFilterStatus = LaunchFilterStatus.ALL,
     val error: String? = null,
     val selectedLaunchId: String? = null
 ) {

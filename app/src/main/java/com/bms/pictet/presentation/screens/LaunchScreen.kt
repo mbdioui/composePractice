@@ -99,32 +99,35 @@ fun LaunchContent(
                 },
                 placeholder = { Text("Search Launches ...") },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
-                singleLine = true
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
             )
 
             FilterChips(
                 selectedStatus = uiState.filterStatus, onFilterStatusChange = onFilterStatusChange
             )
 
-            when {
-                uiState.isLoading && !uiState.hasLaunches -> {
-                    LoadingContent()
-                }
+            Box(modifier = Modifier.weight(1f)) {
+                when {
+                    uiState.isLoading && !uiState.hasLaunches -> {
+                        LoadingContent()
+                    }
 
-                uiState.error != null && !uiState.hasLaunches -> {
-                    ErrorContent(
-                        message = uiState.error,
-                        onRetry = onRetry
-                    )
-                }
+                    uiState.error != null && !uiState.hasLaunches -> {
+                        ErrorContent(
+                            message = uiState.error,
+                            onRetry = onRetry
+                        )
+                    }
 
-                else -> {
-                    LaunchesList(
-                        launches = uiState.filteredLaunches,
-                        isRefreshing = uiState.isRefreshing,
-                        onRefresh = onRefresh,
-                        onLaunchClick = onLaunchClick
-                    )
+                    else -> {
+                        LaunchesList(
+                            launches = uiState.filteredLaunches,
+                            isRefreshing = uiState.isRefreshing,
+                            onRefresh = onRefresh,
+                            onLaunchClick = onLaunchClick
+                        )
+                    }
                 }
             }
         }
@@ -228,7 +231,7 @@ fun FilterChips(
 ) {
     Row(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
             .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
