@@ -1,5 +1,6 @@
 package com.bms.pictet.di
 
+import com.bms.pictet.BuildConfig
 import com.bms.pictet.data.remote.api.SpaceXApi
 import dagger.Module
 import dagger.Provides
@@ -19,7 +20,8 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder().addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+            else HttpLoggingInterceptor.Level.NONE
         }).build()
     }
     @Provides
