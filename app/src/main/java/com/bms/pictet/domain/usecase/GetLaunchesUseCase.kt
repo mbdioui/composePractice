@@ -2,6 +2,7 @@ package com.bms.pictet.domain.usecase
 
 import com.bms.pictet.domain.model.Launch
 import com.bms.pictet.domain.model.Result
+import com.bms.pictet.domain.model.Rocket
 import com.bms.pictet.domain.repository.LaunchRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -28,6 +29,13 @@ class GetLaunchDetailsUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(id: String): Result<Launch> =
         repository.getLaunch(id)
+}
+
+class GetRocketDetailsUseCase @Inject constructor(
+    private val repository: LaunchRepository
+) {
+    suspend operator fun invoke(id: String): Result<Rocket> =
+        repository.getRocket(id)
 }
 
 // domain/usecase/FilterLaunchesUseCase.kt

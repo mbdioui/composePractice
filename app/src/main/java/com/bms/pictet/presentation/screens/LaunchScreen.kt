@@ -69,7 +69,7 @@ fun LaunchScreen(
         onRetry = viewModel::onRetry,
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onFilterStatusChange = viewModel::onFilterStatusChange,
-        onLaunchClick = viewModel::onLaunchClick
+        onLaunchClick = onLaunchClick
     )
 
 }
