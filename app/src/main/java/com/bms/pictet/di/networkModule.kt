@@ -1,9 +1,6 @@
 package com.bms.pictet.di
 
 import com.bms.pictet.data.remote.api.SpaceXApi
-import com.bms.pictet.data.repository.LaunchRepositoryImpl
-import com.bms.pictet.domain.repository.LaunchRepository
-import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,7 +13,7 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class NetworkModule {
+object NetworkModule {
 
     @Provides
     @Singleton
