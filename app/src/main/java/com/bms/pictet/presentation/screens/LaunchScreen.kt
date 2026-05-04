@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -41,11 +40,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.bms.pictet.R
 import com.bms.pictet.domain.model.Launch
 import com.bms.pictet.domain.usecase.LaunchFilterStatus
 import com.bms.pictet.presentation.theme.CosmicBlue
@@ -225,8 +225,8 @@ fun LaunchCard(
                 model = launch.links?.patchSmall,
                 contentDescription = "${launch.name} patch",
                 modifier = Modifier.size(56.dp),
-                placeholder = rememberVectorPainter(Icons.Default.Image),
-                error = rememberVectorPainter(Icons.Default.Image)
+                placeholder = painterResource(R.drawable.ic_patch_placeholder),
+                error = painterResource(R.drawable.ic_patch_error)
             )
 
             Spacer(modifier = Modifier.width(16.dp))

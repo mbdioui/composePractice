@@ -18,11 +18,13 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.bms.pictet.R
 import com.bms.pictet.domain.model.Launch
 import com.bms.pictet.domain.model.Rocket
 import com.bms.pictet.presentation.theme.SpaceSurfaceHighest
@@ -81,7 +83,9 @@ private fun LaunchDetailContent(
                 contentDescription = "${launch.name} patch",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .height(200.dp),
+                placeholder = painterResource(R.drawable.ic_patch_placeholder),
+                error = painterResource(R.drawable.ic_patch_error)
             )
 
             Card(
